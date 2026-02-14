@@ -1,51 +1,52 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Boxes, Mail, Lock, Eye, EyeOff, LogIn, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Login() {
   const navigate = useNavigate();
+  const { signIn, user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Redirect if already logged in
+  if (user) {
+    navigate("/dashboard", { replace: true });
+    return null;
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) { toast.error("Email/Username tidak boleh kosong"); return; }
+    if (!email.trim()) { toast.error("Email tidak boleh kosong"); return; }
     if (!password.trim()) { toast.error("Password tidak boleh kosong"); return; }
-    if (password.length < 6) { toast.error("Password minimal 6 karakter"); return; }
 
     setLoading(true);
-    // Demo login
-    setTimeout(() => {
-      if ((email === "admin" || email === "admin@inventory.local") && password === "admin123") {
-        toast.success("Login berhasil!");
-        navigate("/dashboard");
-      } else {
-        toast.error("Email/Username atau Password salah!");
-      }
-      setLoading(false);
-    }, 1000);
+    const { error } = await signIn(email, password);
+    if (error) {
+      toast.error(error.message || "Email atau Password salah!");
+    } else {
+      toast.success("Login berhasil!");
+      navigate("/dashboard");
+    }
+    setLoading(false);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-8">
+    <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-background">
       <div className="w-full max-w-5xl">
         <div className="grid grid-cols-1 md:grid-cols-2 rounded-xl overflow-hidden shadow-2xl">
           {/* Left Side - Branding */}
           <div className="bg-gradient-primary hidden md:flex flex-col items-center justify-center p-12 relative overflow-hidden animate-slide-in-left">
             <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -mr-48 -mt-48" />
             <div className="absolute bottom-0 left-0 w-96 h-96 bg-white/5 rounded-full -ml-48 -mb-48" />
-
             <div className="relative z-10 text-center">
-              <div className="mb-8">
-                <Boxes className="h-16 w-16 text-primary-foreground mx-auto mb-6" />
-              </div>
+              <Boxes className="h-16 w-16 text-primary-foreground mx-auto mb-6" />
               <h1 className="text-4xl font-bold text-primary-foreground mb-4">Inventory</h1>
               <p className="text-primary-foreground/80 text-lg mb-12">Sistem Manajemen Stok Barang</p>
-
               <div className="space-y-4 text-left">
                 {["Kelola stok barang dengan mudah", "Tracking transaksi real-time", "Laporan lengkap dan akurat"].map((text) => (
                   <div key={text} className="flex items-center gap-3 text-primary-foreground/80">
@@ -58,7 +59,7 @@ export default function Login() {
           </div>
 
           {/* Right Side - Form */}
-          <div className="bg-secondary p-8 md:p-12 flex flex-col justify-center animate-slide-in-right">
+          <div className="bg-card p-8 md:p-12 flex flex-col justify-center animate-slide-in-right">
             <div className="animate-fade-in">
               <div className="text-center mb-8">
                 <h2 className="text-3xl font-bold mb-2 flex items-center justify-center gap-2">
@@ -69,13 +70,13 @@ export default function Login() {
 
               <form className="space-y-5" onSubmit={handleLogin}>
                 <div>
-                  <label className="block text-sm font-medium text-secondary-foreground mb-2">
-                    <Mail className="inline h-4 w-4 mr-2" />Email atau Username
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    <Mail className="inline h-4 w-4 mr-2" />Email
                   </label>
                   <input
-                    type="text"
-                    placeholder="Masukkan email atau username"
-                    className="w-full bg-background/50 border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-all placeholder:text-muted-foreground"
+                    type="email"
+                    placeholder="Masukkan email"
+                    className="w-full bg-background border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-all placeholder:text-muted-foreground"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -83,14 +84,14 @@ export default function Login() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-secondary-foreground mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     <Lock className="inline h-4 w-4 mr-2" />Password
                   </label>
                   <div className="relative">
                     <input
                       type={showPassword ? "text" : "password"}
                       placeholder="Masukkan password"
-                      className="w-full bg-background/50 border border-border rounded-lg px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-all placeholder:text-muted-foreground"
+                      className="w-full bg-background border border-border rounded-lg px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-all placeholder:text-muted-foreground"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
@@ -111,8 +112,11 @@ export default function Login() {
                 </Button>
               </form>
 
-              <p className="text-center text-xs text-muted-foreground mt-8">
-                Demo: admin / admin123
+              <p className="text-center text-sm text-muted-foreground mt-6">
+                Belum punya akun?{" "}
+                <Link to="/register" className="text-info-foreground hover:underline font-medium">
+                  Daftar Sekarang
+                </Link>
               </p>
             </div>
           </div>

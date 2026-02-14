@@ -1,23 +1,33 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Users, UserPlus, ShieldCheck, UserCheck, Edit, Trash2, CheckCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-
-const dummyUsers = [
-  { id: 1, name: "Admin User", email: "admin@inventory.local", role: "Admin", status: "active", joinDate: "01 Jan 2025" },
-  { id: 2, name: "Staff Manager", email: "staff@inventory.local", role: "Staff", status: "active", joinDate: "05 Feb 2025" },
-  { id: 3, name: "Operator A", email: "operator.a@inventory.local", role: "Staff", status: "active", joinDate: "10 Mar 2025" },
-  { id: 4, name: "Operator B", email: "operator.b@inventory.local", role: "Staff", status: "inactive", joinDate: "15 Apr 2025" },
-  { id: 5, name: "Viewer User", email: "viewer@inventory.local", role: "Viewer", status: "active", joinDate: "20 May 2025" },
-];
+import { supabase } from "@/integrations/supabase/client";
 
 export default function UserManagement() {
-  const [users] = useState(dummyUsers);
+  const [users, setUsers] = useState<any[]>([]);
+
+  const fetchUsers = async () => {
+    const { data: profiles } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
+    if (!profiles) return;
+
+    // Fetch roles for all users
+    const { data: roles } = await supabase.from("user_roles").select("*");
+    const roleMap: Record<string, string> = {};
+    roles?.forEach((r: any) => { roleMap[r.user_id] = r.role; });
+
+    setUsers(profiles.map((p: any) => ({
+      ...p,
+      role: roleMap[p.user_id] || "staff",
+    })));
+  };
+
+  useEffect(() => { fetchUsers(); }, []);
 
   const totalUsers = users.length;
-  const admins = users.filter((u) => u.role === "Admin").length;
-  const activeStaff = users.filter((u) => u.status === "active" && u.role !== "Admin").length;
+  const admins = users.filter((u) => u.role === "admin").length;
+  const activeStaff = users.filter((u) => u.status === "active" && u.role !== "admin").length;
 
   return (
     <div className="animate-fade-in">
@@ -31,7 +41,6 @@ export default function UserManagement() {
         </Link>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {[
           { label: "Total User", value: totalUsers, icon: Users },
@@ -50,14 +59,13 @@ export default function UserManagement() {
         ))}
       </div>
 
-      {/* Table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/30">
                 <th className="text-left py-3 px-4 text-muted-foreground font-medium">Nama User</th>
-                <th className="text-left py-3 px-4 text-muted-foreground font-medium">Email</th>
+                <th className="text-left py-3 px-4 text-muted-foreground font-medium">Username</th>
                 <th className="text-center py-3 px-4 text-muted-foreground font-medium">Role</th>
                 <th className="text-center py-3 px-4 text-muted-foreground font-medium">Bergabung</th>
                 <th className="text-center py-3 px-4 text-muted-foreground font-medium">Status</th>
@@ -65,27 +73,25 @@ export default function UserManagement() {
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
+              {users.length === 0 ? (
+                <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">Tidak ada user</td></tr>
+              ) : users.map((user) => (
                 <tr key={user.id} className="border-b border-border/50 hover:bg-primary/5 transition-colors">
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-gradient-primary flex items-center justify-center text-xs font-medium text-primary-foreground">
-                        {user.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                        {user.full_name?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || "U"}
                       </div>
-                      <span className="font-medium">{user.name}</span>
+                      <span className="font-medium">{user.full_name || "-"}</span>
                     </div>
                   </td>
-                  <td className="py-3 px-4 text-muted-foreground">{user.email}</td>
+                  <td className="py-3 px-4 text-muted-foreground">{user.username || "-"}</td>
                   <td className="py-3 px-4 text-center">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      user.role === "Admin" ? "bg-primary/30 text-info-foreground" : "bg-success/30 text-success-foreground"
-                    }`}>{user.role}</span>
+                    <span className={`px-2 py-1 rounded text-xs font-medium capitalize ${user.role === "admin" ? "bg-primary/30 text-info-foreground" : "bg-success/30 text-success-foreground"}`}>{user.role}</span>
                   </td>
-                  <td className="py-3 px-4 text-center text-muted-foreground">{user.joinDate}</td>
+                  <td className="py-3 px-4 text-center text-muted-foreground">{new Date(user.created_at).toLocaleDateString("id-ID")}</td>
                   <td className="py-3 px-4 text-center">
-                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
-                      user.status === "active" ? "bg-success/30 text-success-foreground" : "bg-destructive/30 text-destructive-foreground"
-                    }`}>
+                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${user.status === "active" ? "bg-success/30 text-success-foreground" : "bg-destructive/30 text-destructive-foreground"}`}>
                       {user.status === "active" ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
                       {user.status === "active" ? "Aktif" : "Non-Aktif"}
                     </span>
@@ -95,11 +101,6 @@ export default function UserManagement() {
                       <Link to={`/admin/users/edit/${user.id}`}>
                         <Button variant="gradient" size="sm"><Edit className="h-3 w-3" /> Edit</Button>
                       </Link>
-                      {user.role !== "Admin" && (
-                        <Button variant="gradientDanger" size="sm" onClick={() => toast.success("User dihapus")}>
-                          <Trash2 className="h-3 w-3" /> Hapus
-                        </Button>
-                      )}
                     </div>
                   </td>
                 </tr>

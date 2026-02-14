@@ -1,29 +1,42 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Plus, Search, Edit, Trash2, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-
-const dummyBarang = [
-  { id: 1, kode: "BRG-001", nama: "Biji Kopi Arabica", kategori: "Bahan Baku", stok: 50, satuan: "Kg", harga: 150000 },
-  { id: 2, kode: "BRG-002", nama: "Gelas Plastik 16oz", kategori: "Packaging", stok: 500, satuan: "Pcs", harga: 500 },
-  { id: 3, kode: "BRG-003", nama: "Susu Full Cream", kategori: "Bahan Baku", stok: 30, satuan: "Liter", harga: 25000 },
-  { id: 4, kode: "BRG-004", nama: "Gula Pasir", kategori: "Bahan Baku", stok: 25, satuan: "Kg", harga: 18000 },
-  { id: 5, kode: "BRG-005", nama: "Sedotan", kategori: "Packaging", stok: 200, satuan: "Pack", harga: 15000 },
-  { id: 6, kode: "BRG-006", nama: "Sirup Vanilla", kategori: "Bahan Baku", stok: 8, satuan: "Botol", harga: 85000 },
-];
+import { supabase } from "@/integrations/supabase/client";
 
 export default function DataBarang() {
   const [search, setSearch] = useState("");
-  const [data] = useState(dummyBarang);
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = data.filter((b) =>
+  const fetchData = async () => {
+    const { data: items, error } = await supabase
+      .from("items")
+      .select("*, categories(name)")
+      .order("created_at", { ascending: false });
+    if (!error && items) setData(items);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchData();
+    const channel = supabase.channel("items-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "items" }, fetchData)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  const filtered = data.filter((b: any) =>
     b.nama.toLowerCase().includes(search.toLowerCase()) ||
     b.kode.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleDelete = (id: number) => {
-    if (confirm("Hapus barang ini?")) toast.success("Barang berhasil dihapus");
+  const handleDelete = async (id: string) => {
+    if (!confirm("Hapus barang ini?")) return;
+    const { error } = await supabase.from("items").delete().eq("id", id);
+    if (error) toast.error("Gagal menghapus: " + error.message);
+    else toast.success("Barang berhasil dihapus");
   };
 
   return (
@@ -38,19 +51,17 @@ export default function DataBarang() {
         </Link>
       </div>
 
-      {/* Search */}
       <div className="relative mb-6 max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <input
           type="text"
           placeholder="Cari barang..."
-          className="w-full bg-card border border-border rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-all"
+          className="w-full bg-muted border border-border rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-all"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
-      {/* Table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -65,18 +76,24 @@ export default function DataBarang() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((item) => (
+              {loading ? (
+                <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">Memuat data...</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">Tidak ada data barang</td></tr>
+              ) : filtered.map((item: any) => (
                 <tr key={item.id} className="border-b border-border/50 hover:bg-primary/5 transition-colors">
                   <td className="py-3 px-4 font-mono text-xs text-muted-foreground">{item.kode}</td>
                   <td className="py-3 px-4 font-medium flex items-center gap-2">
                     <Package className="h-4 w-4 text-primary" /> {item.nama}
                   </td>
-                  <td className="py-3 px-4 text-muted-foreground">{item.kategori}</td>
+                  <td className="py-3 px-4 text-muted-foreground">{item.categories?.name || "-"}</td>
                   <td className="py-3 px-4 text-right">{item.stok} {item.satuan}</td>
-                  <td className="py-3 px-4 text-right">Rp {item.harga.toLocaleString("id-ID")}</td>
+                  <td className="py-3 px-4 text-right">Rp {Number(item.harga).toLocaleString("id-ID")}</td>
                   <td className="py-3 px-4">
                     <div className="flex justify-center gap-2">
-                      <Button variant="gradient" size="sm"><Edit className="h-3 w-3" /> Edit</Button>
+                      <Link to={`/barang/edit/${item.id}`}>
+                        <Button variant="gradient" size="sm"><Edit className="h-3 w-3" /> Edit</Button>
+                      </Link>
                       <Button variant="gradientDanger" size="sm" onClick={() => handleDelete(item.id)}>
                         <Trash2 className="h-3 w-3" /> Hapus
                       </Button>

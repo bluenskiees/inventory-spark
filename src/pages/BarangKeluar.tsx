@@ -1,34 +1,80 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowUpCircle, Save, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
-interface ItemRow { barang: string; qty: string; satuan: string; tujuan: string; }
+interface ItemRow { item_id: string; qty: string; satuan: string; tujuan: string; }
 
 export default function BarangKeluar() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [penerima, setPenerima] = useState("");
   const [tanggal, setTanggal] = useState(new Date().toISOString().split("T")[0]);
-  const [items, setItems] = useState<ItemRow[]>([{ barang: "", qty: "", satuan: "", tujuan: "" }]);
+  const [items, setItems] = useState<ItemRow[]>([{ item_id: "", qty: "", satuan: "", tujuan: "" }]);
+  const [barangList, setBarangList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const addRow = () => setItems([...items, { barang: "", qty: "", satuan: "", tujuan: "" }]);
+  useEffect(() => {
+    supabase.from("items").select("id, nama, satuan, stok").order("nama").then(({ data }) => {
+      if (data) setBarangList(data);
+    });
+  }, []);
+
+  const addRow = () => setItems([...items, { item_id: "", qty: "", satuan: "", tujuan: "" }]);
   const removeRow = (i: number) => items.length > 1 && setItems(items.filter((_, idx) => idx !== i));
   const updateRow = (i: number, field: keyof ItemRow, value: string) => {
     const updated = [...items];
     updated[i] = { ...updated[i], [field]: value };
+    if (field === "item_id") {
+      const found = barangList.find((b: any) => b.id === value);
+      if (found) updated[i].satuan = found.satuan;
+    }
     setItems(updated);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!penerima) { toast.error("Penerima wajib diisi"); return; }
-    if (items.some((r) => !r.barang || !r.qty)) { toast.error("Lengkapi data barang"); return; }
-    toast.success("Transaksi barang keluar berhasil disimpan!");
-    navigate("/transaksi/riwayat");
+    if (items.some((r) => !r.item_id || !r.qty)) { toast.error("Lengkapi data barang"); return; }
+
+    // Check stock availability
+    for (const row of items) {
+      const item = barangList.find((b: any) => b.id === row.item_id);
+      if (item && parseInt(row.qty) > item.stok) {
+        toast.error(`Stok ${item.nama} tidak cukup (tersedia: ${item.stok})`);
+        return;
+      }
+    }
+
+    setLoading(true);
+    const { data: tx, error: txError } = await supabase.from("transactions").insert({
+      type: "keluar" as any,
+      tanggal,
+      supplier_or_target: penerima,
+      status: "selesai" as any,
+      created_by: user?.id,
+    }).select().single();
+
+    if (txError) { toast.error("Gagal: " + txError.message); setLoading(false); return; }
+
+    const txItems = items.map((r) => ({
+      transaction_id: tx.id,
+      item_id: r.item_id,
+      qty: parseInt(r.qty),
+      satuan: r.satuan,
+      keterangan: r.tujuan || null,
+    }));
+
+    const { error: itemsError } = await supabase.from("transaction_items").insert(txItems);
+    if (itemsError) toast.error("Gagal menyimpan item: " + itemsError.message);
+    else { toast.success("Transaksi barang keluar berhasil!"); navigate("/transaksi/riwayat"); }
+    setLoading(false);
   };
 
-  const inputClass = "w-full bg-background/50 border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-all placeholder:text-muted-foreground";
+  const inputClass = "w-full bg-background border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-all placeholder:text-muted-foreground";
 
   return (
     <div className="animate-fade-in">
@@ -61,24 +107,16 @@ export default function BarangKeluar() {
               {items.map((row, i) => (
                 <div key={i} className="grid grid-cols-12 gap-3 items-end">
                   <div className="col-span-4">
-                    <select className={inputClass} value={row.barang} onChange={(e) => updateRow(i, "barang", e.target.value)} required>
+                    <select className={inputClass} value={row.item_id} onChange={(e) => updateRow(i, "item_id", e.target.value)} required>
                       <option value="">Pilih Barang</option>
-                      <option value="Biji Kopi Arabica">Biji Kopi Arabica</option>
-                      <option value="Gelas Plastik 16oz">Gelas Plastik 16oz</option>
-                      <option value="Susu Full Cream">Susu Full Cream</option>
-                      <option value="Gula Pasir">Gula Pasir</option>
+                      {barangList.map((b: any) => <option key={b.id} value={b.id}>{b.nama} (stok: {b.stok})</option>)}
                     </select>
                   </div>
                   <div className="col-span-2">
-                    <input type="number" className={inputClass} placeholder="Qty" value={row.qty} onChange={(e) => updateRow(i, "qty", e.target.value)} required />
+                    <input type="number" className={inputClass} placeholder="Qty" value={row.qty} onChange={(e) => updateRow(i, "qty", e.target.value)} required min="1" />
                   </div>
                   <div className="col-span-2">
-                    <select className={inputClass} value={row.satuan} onChange={(e) => updateRow(i, "satuan", e.target.value)}>
-                      <option value="">Satuan</option>
-                      <option value="Kg">Kg</option>
-                      <option value="Liter">Liter</option>
-                      <option value="Pcs">Pcs</option>
-                    </select>
+                    <input className={inputClass} placeholder="Satuan" value={row.satuan} readOnly />
                   </div>
                   <div className="col-span-3">
                     <input className={inputClass} placeholder="Tujuan" value={row.tujuan} onChange={(e) => updateRow(i, "tujuan", e.target.value)} />
@@ -94,7 +132,7 @@ export default function BarangKeluar() {
           </div>
 
           <div className="flex gap-4 pt-4 border-t border-border">
-            <Button variant="gradient" type="submit"><Save className="h-4 w-4" /> Simpan Transaksi</Button>
+            <Button variant="gradient" type="submit" disabled={loading}><Save className="h-4 w-4" /> {loading ? "Menyimpan..." : "Simpan Transaksi"}</Button>
           </div>
         </form>
       </div>

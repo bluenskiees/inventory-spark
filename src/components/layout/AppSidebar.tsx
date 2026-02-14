@@ -1,8 +1,10 @@
-import { useLocation, useNavigate, Link } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import {
   TrendingUp, Home, Package, ArrowDownCircle, ArrowUpCircle,
   History, FileText, BarChart3, Users, LogOut, X, Boxes
 } from "lucide-react";
+import { toast } from "sonner";
 
 const navItems = [
   { title: "Dashboard", path: "/dashboard", icon: TrendingUp },
@@ -16,13 +18,11 @@ const navItems = [
   { title: "Admin", path: "/admin/users", icon: Users },
 ];
 
-interface AppSidebarProps {
-  onClose: () => void;
-}
+interface AppSidebarProps { onClose: () => void; }
 
 export default function AppSidebar({ onClose }: AppSidebarProps) {
   const location = useLocation();
-  const navigate = useNavigate();
+  const { signOut } = useAuth();
 
   const isActive = (path: string) => {
     if (path === "/dashboard") return location.pathname === "/dashboard";
@@ -30,32 +30,26 @@ export default function AppSidebar({ onClose }: AppSidebarProps) {
     return location.pathname.startsWith(path);
   };
 
-  const handleLogout = () => {
-    if (confirm("Apakah Anda yakin ingin logout?")) {
-      navigate("/login");
-    }
+  const handleLogout = async () => {
+    await signOut();
+    toast.success("Berhasil logout");
   };
 
   return (
     <div className="flex flex-col h-full">
-      {/* Logo */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Boxes className="h-8 w-8 text-primary-foreground" />
             <h1 className="text-2xl font-bold text-primary-foreground">Inventory</h1>
           </div>
-          <button
-            onClick={onClose}
-            className="lg:hidden text-primary-foreground/70 hover:text-primary-foreground"
-          >
+          <button onClick={onClose} className="lg:hidden text-primary-foreground/70 hover:text-primary-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>
-        <p className="text-primary-foreground/50 text-sm ml-11">v1.0</p>
+        <p className="text-primary-foreground/50 text-sm ml-11">v2.0</p>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 space-y-1">
         {navItems.map((item) => (
           <Link
@@ -74,7 +68,6 @@ export default function AppSidebar({ onClose }: AppSidebarProps) {
         ))}
       </nav>
 
-      {/* Logout */}
       <div className="border-t border-white/20 pt-4 mt-4">
         <button
           onClick={handleLogout}
