@@ -1,18 +1,8 @@
 import { useState, useEffect } from "react";
-import { BarChart3, Search, AlertTriangle, CheckCircle, Package, TrendingUp, TrendingDown, Activity } from "lucide-react";
+import { BarChart3, Search, AlertTriangle, CheckCircle, Package, TrendingDown, Activity } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, PieChart, Pie, Cell, AreaChart, Area
-} from "recharts";
-
-const COLORS = ["hsl(222, 84%, 24%)", "hsl(168, 42%, 35%)", "hsl(21, 79%, 57%)", "hsl(349, 81%, 45%)", "hsl(217, 91%, 60%)", "hsl(280, 60%, 50%)"];
-
-function getStatus(stok: number, min: number) {
-  if (stok <= min * 0.5) return { label: "Kritis", color: "bg-destructive/30 text-destructive-foreground" };
-  if (stok <= min) return { label: "Rendah", color: "bg-warning/30 text-warning-foreground" };
-  return { label: "Normal", color: "bg-success/30 text-success-foreground" };
-}
+import StokCharts from "@/components/stok/StokCharts";
+import StokTable from "@/components/stok/StokTable";
 
 export default function StokPage() {
   const [search, setSearch] = useState("");
@@ -26,7 +16,6 @@ export default function StokPage() {
     if (data) {
       setItems(data);
 
-      // Category distribution for pie chart
       const catMap: Record<string, { count: number; totalStok: number }> = {};
       data.forEach((item: any) => {
         const cat = item.categories?.name || "Lainnya";
@@ -37,7 +26,6 @@ export default function StokPage() {
       setCategoryDistribution(Object.entries(catMap).map(([name, v]) => ({ name, value: v.totalStok, count: v.count })));
     }
 
-    // Trend data - last 14 days of transactions
     const days = [];
     for (let i = 13; i >= 0; i--) {
       const d = new Date();
@@ -58,7 +46,6 @@ export default function StokPage() {
     });
     setTrendData(trend);
 
-    // Stock movement per item (top 8 items by activity)
     const itemActivity: Record<string, { nama: string; masuk: number; keluar: number }> = {};
     txData?.forEach((tx: any) => {
       tx.transaction_items?.forEach((ti: any) => {
@@ -85,8 +72,6 @@ export default function StokPage() {
   const totalItems = items.length;
   const lowStock = items.filter((s: any) => s.stok <= s.stok_min).length;
   const criticalStock = items.filter((s: any) => s.stok <= s.stok_min * 0.5).length;
-
-  const tooltipStyle = { backgroundColor: "hsl(232, 38%, 16%)", border: "1px solid hsl(229, 19%, 22%)", borderRadius: "8px", color: "#fff" };
 
   return (
     <div className="animate-fade-in space-y-8">
@@ -115,92 +100,12 @@ export default function StokPage() {
         ))}
       </div>
 
-      {/* Analytics Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Trend Chart - 14 Day Analytics */}
-        <div className="bg-card border border-border rounded-xl p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            <h3 className="text-lg font-bold">Tren Pergerakan Stok (14 Hari)</h3>
-          </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={trendData}>
-              <defs>
-                <linearGradient id="masukGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(168, 42%, 35%)" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="hsl(168, 42%, 35%)" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="keluarGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(21, 79%, 57%)" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="hsl(21, 79%, 57%)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(229, 19%, 22%)" />
-              <XAxis dataKey="name" stroke="hsl(0, 0%, 60%)" fontSize={11} />
-              <YAxis stroke="hsl(0, 0%, 60%)" fontSize={11} />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Area type="monotone" dataKey="masuk" stroke="hsl(168, 42%, 35%)" fill="url(#masukGrad)" name="Masuk" strokeWidth={2} />
-              <Area type="monotone" dataKey="keluar" stroke="hsl(21, 79%, 57%)" fill="url(#keluarGrad)" name="Keluar" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Category Distribution - Traffic Source Analytics */}
-        <div className="bg-card border border-border rounded-xl p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Activity className="h-5 w-5 text-primary" />
-            <h3 className="text-lg font-bold">Distribusi Stok per Kategori</h3>
-          </div>
-          {categoryDistribution.length > 0 ? (
-            <div className="flex items-center gap-6">
-              <ResponsiveContainer width="50%" height={260}>
-                <PieChart>
-                  <Pie data={categoryDistribution} cx="50%" cy="50%" innerRadius={50} outerRadius={90} dataKey="value" paddingAngle={4}>
-                    {categoryDistribution.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip contentStyle={tooltipStyle} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="flex-1 space-y-3">
-                {categoryDistribution.map((cat, i) => (
-                  <div key={cat.name} className="flex items-center gap-3">
-                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{cat.name}</p>
-                      <p className="text-xs text-muted-foreground">{cat.count} item · {cat.value} unit</p>
-                    </div>
-                    <span className="text-sm font-bold">{items.length > 0 ? Math.round((cat.value / items.reduce((s: number, it: any) => s + it.stok, 0)) * 100) : 0}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="h-[260px] flex items-center justify-center text-muted-foreground text-sm">Belum ada data</div>
-          )}
-        </div>
-      </div>
-
-      {/* Stock Movement Per Item - Data Visualization */}
-      <div className="bg-card border border-border rounded-xl p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <BarChart3 className="h-5 w-5 text-primary" />
-          <h3 className="text-lg font-bold">Pergerakan Stok per Barang (Top 8)</h3>
-        </div>
-        {stockMovement.length > 0 ? (
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={stockMovement} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(229, 19%, 22%)" />
-              <XAxis type="number" stroke="hsl(0, 0%, 60%)" fontSize={11} />
-              <YAxis dataKey="nama" type="category" width={140} stroke="hsl(0, 0%, 60%)" fontSize={11} />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Bar dataKey="masuk" fill="hsl(168, 42%, 35%)" name="Masuk" radius={[0, 4, 4, 0]} />
-              <Bar dataKey="keluar" fill="hsl(21, 79%, 57%)" name="Keluar" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="h-[320px] flex items-center justify-center text-muted-foreground text-sm">Belum ada data transaksi</div>
-        )}
-      </div>
+      <StokCharts
+        trendData={trendData}
+        categoryDistribution={categoryDistribution}
+        stockMovement={stockMovement}
+        items={items}
+      />
 
       {/* Search */}
       <div className="relative max-w-md">
@@ -208,45 +113,7 @@ export default function StokPage() {
         <input className="w-full bg-muted border border-border rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-all" placeholder="Cari barang..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
-      {/* Stock Table */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/30">
-                <th className="text-left py-3 px-4 text-muted-foreground font-medium">Nama Barang</th>
-                <th className="text-left py-3 px-4 text-muted-foreground font-medium">Kategori</th>
-                <th className="text-right py-3 px-4 text-muted-foreground font-medium">Stok</th>
-                <th className="text-left py-3 px-4 text-muted-foreground font-medium w-48">Progress</th>
-                <th className="text-center py-3 px-4 text-muted-foreground font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">Tidak ada data</td></tr>
-              ) : filtered.map((item: any) => {
-                const status = getStatus(item.stok, item.stok_min);
-                const progress = Math.min((item.stok / item.stok_max) * 100, 100);
-                return (
-                  <tr key={item.id} className="border-b border-border/50 hover:bg-primary/5 transition-colors">
-                    <td className="py-3 px-4 font-medium">{item.nama}</td>
-                    <td className="py-3 px-4 text-muted-foreground">{item.categories?.name || "-"}</td>
-                    <td className="py-3 px-4 text-right">{item.stok} {item.satuan}</td>
-                    <td className="py-3 px-4">
-                      <div className="bg-muted rounded-full h-2 overflow-hidden">
-                        <div className={`h-full rounded-full transition-all ${progress > 50 ? "bg-gradient-primary" : progress > 25 ? "bg-warning" : "bg-destructive"}`} style={{ width: `${progress}%` }} />
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${status.color}`}>{status.label}</span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <StokTable filtered={filtered} />
     </div>
   );
 }
