@@ -42,8 +42,8 @@ export default function Register() {
             <div className="absolute bottom-0 left-0 w-96 h-96 bg-white/5 rounded-full -ml-48 -mb-48" />
             <div className="relative z-10 text-center">
               <Boxes className="h-16 w-16 text-primary-foreground mx-auto mb-6" />
-              <h1 className="text-4xl font-bold text-primary-foreground mb-4">Inventory</h1>
-              <p className="text-primary-foreground/80 text-lg">Bergabung untuk mengelola inventory Anda</p>
+              <h1 className="text-4xl font-bold text-primary-foreground mb-4">Inventory Pro</h1>
+              <p className="text-primary-foreground/80 text-lg">Bergabung untuk mengelola inventory bisnis Anda</p>
             </div>
           </div>
 

@@ -45,10 +45,10 @@ export default function Login() {
             <div className="absolute bottom-0 left-0 w-96 h-96 bg-white/5 rounded-full -ml-48 -mb-48" />
             <div className="relative z-10 text-center">
               <Boxes className="h-16 w-16 text-primary-foreground mx-auto mb-6" />
-              <h1 className="text-4xl font-bold text-primary-foreground mb-4">Inventory</h1>
-              <p className="text-primary-foreground/80 text-lg mb-12">Sistem Manajemen Stok Barang</p>
+              <h1 className="text-4xl font-bold text-primary-foreground mb-4">Inventory Pro</h1>
+              <p className="text-primary-foreground/80 text-lg mb-12">Solusi Manajemen Inventory untuk Semua Bisnis</p>
               <div className="space-y-4 text-left">
-                {["Kelola stok barang dengan mudah", "Tracking transaksi real-time", "Laporan lengkap dan akurat"].map((text) => (
+                {["Kelola stok & inventory multi-kategori", "Tracking transaksi masuk/keluar real-time", "Laporan & analitik lengkap dan akurat"].map((text) => (
                   <div key={text} className="flex items-center gap-3 text-primary-foreground/80">
                     <CheckCircle className="h-5 w-5 text-primary-foreground flex-shrink-0" />
                     <span>{text}</span>

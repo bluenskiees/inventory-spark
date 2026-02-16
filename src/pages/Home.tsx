@@ -47,12 +47,12 @@ export default function Home() {
     <div className="animate-fade-in">
       <div className="mb-8">
         <h2 className="text-3xl font-bold">Home</h2>
-        <p className="text-muted-foreground">Selamat datang di Sistem Inventory</p>
+        <p className="text-muted-foreground">Selamat datang di Inventory Pro</p>
       </div>
 
       <div className="bg-gradient-primary rounded-xl p-8 mb-8">
         <h3 className="text-2xl font-bold text-primary-foreground mb-2">Selamat Datang Kembali, {profile?.full_name || "User"}! 👋</h3>
-        <p className="text-primary-foreground/80">Mari kelola inventori Anda dengan efisien</p>
+        <p className="text-primary-foreground/80">Kelola inventory bisnis Anda dengan mudah dan efisien</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
