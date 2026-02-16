@@ -41,7 +41,7 @@ export default function AppSidebar({ onClose }: AppSidebarProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Boxes className="h-8 w-8 text-primary-foreground" />
-            <h1 className="text-2xl font-bold text-primary-foreground">Inventory</h1>
+            <h1 className="text-2xl font-bold text-primary-foreground">Inventory Pro</h1>
           </div>
           <button onClick={onClose} className="lg:hidden text-primary-foreground/70 hover:text-primary-foreground">
             <X className="h-5 w-5" />
